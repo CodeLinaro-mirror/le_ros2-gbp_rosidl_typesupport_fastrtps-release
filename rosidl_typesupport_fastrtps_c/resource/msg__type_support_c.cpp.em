@@ -9,6 +9,7 @@ from rosidl_parser.definition import AbstractNestedType
 from rosidl_parser.definition import AbstractSequence
 from rosidl_parser.definition import AbstractString
 from rosidl_parser.definition import AbstractWString
+from rosidl_parser.definition import ACTION_FEEDBACK_MESSAGE_SUFFIX
 from rosidl_parser.definition import ACTION_FEEDBACK_SUFFIX
 from rosidl_parser.definition import ACTION_GOAL_SUFFIX
 from rosidl_parser.definition import ACTION_RESULT_SUFFIX
@@ -21,6 +22,21 @@ from rosidl_parser.definition import BoundedSequence
 from rosidl_parser.definition import NamespacedType
 from rosidl_parser.definition import UnboundedSequence
 from rosidl_pycommon import convert_camel_case_to_lower_case_underscore
+
+# Service Request/Response/Event and Action Goal/Result/Feedback/FeedbackMessage
+# types are always generated into a single shared file together with their
+# parent interface, and are always emitted earlier in that same file due to
+# generation order, so nested references to them must not be turned into a
+# separate #include (there is no separate file for them).
+_self_file_suffixes = (
+    SERVICE_REQUEST_MESSAGE_SUFFIX,
+    SERVICE_RESPONSE_MESSAGE_SUFFIX,
+    SERVICE_EVENT_MESSAGE_SUFFIX,
+    ACTION_GOAL_SUFFIX,
+    ACTION_RESULT_SUFFIX,
+    ACTION_FEEDBACK_SUFFIX,
+    ACTION_FEEDBACK_MESSAGE_SUFFIX,
+)
 
 # Detect direct Buffer fields (only uint8[] UnboundedSequence becomes Buffer<T>).
 has_direct_buffer_fields = False
@@ -62,20 +78,20 @@ include_base = '/'.join(include_parts)
 header_files = [
     'cassert',
     'cstddef',
-    'limits',
-    'string',
     # Provides the rosidl_typesupport_fastrtps_c__identifier symbol declaration.
     'rosidl_typesupport_fastrtps_c/identifier.h',
-    'rosidl_typesupport_fastrtps_c/serialization_helpers.hpp',
     # Provides the definition of the message_type_support_callbacks_t struct.
     'rosidl_typesupport_fastrtps_cpp/message_type_support.h',
     package_name + '/msg/rosidl_typesupport_fastrtps_c__visibility_control.h',
     include_base + '__struct.h',
     include_base + '__functions.h',
+    # Inline (de)serialization implementation for this message, and
+    # transitively for any nested message types. Including it here (instead
+    # of forward-declaring the nested functions) allows the compiler to
+    # fully inline nested (de)serialization logic.
+    include_base + '__rosidl_typesupport_fastrtps_c_impl.hpp',
     'fastcdr/Cdr.h',
 ]
-if has_direct_buffer_fields:
-    header_files.append('rosidl_typesupport_fastrtps_cpp/buffer_serialization.hpp')
 }@
 @[for header_file in header_files]@
 @[    if header_file in include_directives]@
@@ -159,7 +175,31 @@ for member in message.structure.members:
 #include "@(header_file)"  // @(', '.join(sorted(includes[header_file])))
 @[end for]@
 
-// forward declare type support functions
+// Include the inline (de)serialization headers of nested message types so
+// their bodies are visible here and can be fully inlined by the compiler.
+@{
+_nested_impl_keys = [k for k in nested_type_keys if not k[-1].endswith(_self_file_suffixes)]
+}@
+@[for key in _nested_impl_keys]@
+@{
+nested_impl_header = '/'.join(
+    list(key[:-1]) +
+    ['detail', convert_camel_case_to_lower_case_underscore(key[-1])]
+) + '__rosidl_typesupport_fastrtps_c_impl.hpp'
+}@
+@[  if nested_impl_header in include_directives]@
+// already included above
+// @
+@[  else]@
+@{include_directives.add(nested_impl_header)}@
+@[  end if]@
+#include "@(nested_impl_header)"
+@[end for]@
+
+// forward declare type support functions still needed directly in this
+// file. cdr_serialize/cdr_deserialize/get_serialized_size/max_serialized_size
+// and their _key/_with_endpoint variants are provided (inline) by the
+// included impl headers above instead.
 @{
 forward_declares = {}
 for member in message.structure.members:
@@ -168,86 +208,15 @@ for member in message.structure.members:
         type_ = type_.value_type
     if isinstance(type_, NamespacedType):
         key = (*type_.namespaces, type_.name)
-        if key not in includes:
-            forward_declares[key] = set([])
-        forward_declares[key].add(member.name)
+        forward_declares[key] = True
 }@
 @[for key in sorted(forward_declares.keys())]@
 
 @[  if key[0] != package_name]@
 ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
 @[  end if]@
-bool cdr_serialize_@('__'.join(key))(
-  const @('__'.join(key)) * ros_message,
-  eprosima::fastcdr::Cdr & cdr);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-bool cdr_deserialize_@('__'.join(key))(
-  eprosima::fastcdr::Cdr & cdr,
-  @('__'.join(key)) * ros_message);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-size_t get_serialized_size_@('__'.join(key))(
-  const void * untyped_ros_message,
-  size_t current_alignment);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-size_t max_serialized_size_@('__'.join(key))(
-  bool & full_bounded,
-  bool & is_plain,
-  size_t current_alignment);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-bool cdr_serialize_key_@('__'.join(key))(
-  const @('__'.join(key)) * ros_message,
-  eprosima::fastcdr::Cdr & cdr);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-size_t get_serialized_size_key_@('__'.join(key))(
-  const void * untyped_ros_message,
-  size_t current_alignment);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-size_t max_serialized_size_key_@('__'.join(key))(
-  bool & full_bounded,
-  bool & is_plain,
-  size_t current_alignment);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
 const rosidl_message_type_support_t *
   ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(rosidl_typesupport_fastrtps_c, @(', '.join(key)))();
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-bool cdr_serialize_with_endpoint_@('__'.join(key))(
-  const @('__'.join(key)) * ros_message,
-  eprosima::fastcdr::Cdr & cdr,
-  const rmw_topic_endpoint_info_t & endpoint_info,
-  const rosidl_typesupport_fastrtps_cpp::BufferSerializationContext & serialization_context);
-
-@[  if key[0] != package_name]@
-ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
-@[  end if]@
-bool cdr_deserialize_with_endpoint_@('__'.join(key))(
-  eprosima::fastcdr::Cdr & cdr,
-  @('__'.join(key)) * ros_message,
-  const rmw_topic_endpoint_info_t & endpoint_info,
-  const rosidl_typesupport_fastrtps_cpp::BufferSerializationContext & serialization_context);
 
 @[  if key[0] != package_name]@
 ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
@@ -525,7 +494,7 @@ def generate_member_for_cdr_deserialize(member, suffix=''):
       strlist.append('    if (!ros_i.data) {')
       strlist.append('      rosidl_runtime_c__String__init(&ros_i);')
       strlist.append('    }')
-      strlist.append('    bool succeeded = rosidl_runtime_c__String__assign(&ros_i, tmp.c_str());')
+      strlist.append('    bool succeeded = rosidl_runtime_c__String__assignn(&ros_i, tmp.c_str(), tmp.size());')
       strlist.append('    if (!succeeded) {')
       strlist.append('      fprintf(stderr, "failed to assign string into field \'%s\'\\n");' % member.name)
       strlist.append('      return false;')
@@ -570,9 +539,9 @@ def generate_member_for_cdr_deserialize(member, suffix=''):
     strlist.append('  if (!ros_message->%s.data) {' % member.name)
     strlist.append('    rosidl_runtime_c__String__init(&ros_message->%s);' % member.name)
     strlist.append('  }')
-    strlist.append('  bool succeeded = rosidl_runtime_c__String__assign(')
+    strlist.append('  bool succeeded = rosidl_runtime_c__String__assignn(')
     strlist.append('    &ros_message->%s,' % member.name)
-    strlist.append('    tmp.c_str());')
+    strlist.append('    tmp.c_str(), tmp.size());')
     strlist.append('  if (!succeeded) {')
     strlist.append('    fprintf(stderr, "failed to assign string into field \'%s\'\\n");' % member.name)
     strlist.append('    return false;')
@@ -610,13 +579,7 @@ bool cdr_serialize_@('__'.join([package_name] + list(interface_path.parents[0].p
   const @('__'.join(message.structure.namespaced_type.namespaced_name())) * ros_message,
   eprosima::fastcdr::Cdr & cdr)
 {
-@[for member in message.structure.members]@
-@[  for line in generate_member_for_cdr_serialize(member, '')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  return true;
+  return impl_cdr_serialize_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(ros_message, cdr);
 }
 
 ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
@@ -624,18 +587,8 @@ bool cdr_deserialize_@('__'.join([package_name] + list(interface_path.parents[0]
   eprosima::fastcdr::Cdr & cdr,
   @('__'.join(message.structure.namespaced_type.namespaced_name())) * ros_message)
 {
-@[for member in message.structure.members]@
-@[  for line in generate_member_for_cdr_deserialize(member)]@
-@[    if line]@
-  @(line)
-@[    else]@
-
-@[    end if]@
-@[  end for]@
-
-@[end for]@
-  return true;
-}  // NOLINT(readability/fn_size)
+  return impl_cdr_deserialize_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(cdr, ros_message);
+}
 
 @{
 
@@ -740,22 +693,7 @@ size_t get_serialized_size_@('__'.join([package_name] + list(interface_path.pare
   const void * untyped_ros_message,
   size_t current_alignment)
 {
-  const _@(message.structure.namespaced_type.name)__ros_msg_type * ros_message = static_cast<const _@(message.structure.namespaced_type.name)__ros_msg_type *>(untyped_ros_message);
-  (void)ros_message;
-  size_t initial_alignment = current_alignment;
-
-  const size_t padding = 4;
-  const size_t wchar_size = 4;
-  (void)padding;
-  (void)wchar_size;
-
-@[for member in message.structure.members]@
-@[  for line in generate_member_for_get_serialized_size(member, '')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  return current_alignment - initial_alignment;
+  return impl_get_serialized_size_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(untyped_ros_message, current_alignment);
 }
 
 @{
@@ -857,46 +795,8 @@ size_t max_serialized_size_@('__'.join([package_name] + list(interface_path.pare
   bool & is_plain,
   size_t current_alignment)
 {
-  size_t initial_alignment = current_alignment;
-
-  const size_t padding = 4;
-  const size_t wchar_size = 4;
-  size_t last_member_size = 0;
-  (void)last_member_size;
-  (void)padding;
-  (void)wchar_size;
-
-  full_bounded = true;
-  is_plain = true;
-
-@{
-last_member_name_ = None
-}@
-@[for member in message.structure.members]@
-@{
-last_member_name_ = member.name
-}@
-@[  for line in generate_member_for_max_serialized_size(member, '')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-
-  size_t ret_val = current_alignment - initial_alignment;
-@[if last_member_name_ is not None]@
-  if (is_plain) {
-    // All members are plain, and type is not empty.
-    // We still need to check that the in-memory alignment
-    // is the same as the CDR mandated alignment.
-    using DataType = @('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]));
-    is_plain =
-      (
-      offsetof(DataType, @(last_member_name_)) +
-      last_member_size
-      ) == ret_val;
-  }
-@[end if]@
-  return ret_val;
+  return impl_max_serialized_size_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+    full_bounded, is_plain, current_alignment);
 }
 
 ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
@@ -904,16 +804,7 @@ bool cdr_serialize_key_@('__'.join([package_name] + list(interface_path.parents[
   const @('__'.join(message.structure.namespaced_type.namespaced_name())) * ros_message,
   eprosima::fastcdr::Cdr & cdr)
 {
-@[for member in message.structure.members]@
-@[  if not member.has_annotation('key') and message.structure.has_any_member_with_annotation('key')]@
-@[  continue]@
-@[  end if]@
-@[  for line in generate_member_for_cdr_serialize(member, '_key')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  return true;
+  return impl_cdr_serialize_key_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(ros_message, cdr);
 }
 
 ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
@@ -921,26 +812,7 @@ size_t get_serialized_size_key_@('__'.join([package_name] + list(interface_path.
   const void * untyped_ros_message,
   size_t current_alignment)
 {
-  const _@(message.structure.namespaced_type.name)__ros_msg_type * ros_message = static_cast<const _@(message.structure.namespaced_type.name)__ros_msg_type *>(untyped_ros_message);
-  (void)ros_message;
-
-  size_t initial_alignment = current_alignment;
-
-  const size_t padding = 4;
-  const size_t wchar_size = 4;
-  (void)padding;
-  (void)wchar_size;
-
-@[for member in message.structure.members]@
-@[  if not member.has_annotation('key') and message.structure.has_any_member_with_annotation('key')]@
-@[  continue]@
-@[  end if]@
-@[  for line in generate_member_for_get_serialized_size(member, '_key')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  return current_alignment - initial_alignment;
+  return impl_get_serialized_size_key_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(untyped_ros_message, current_alignment);
 }
 
 ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
@@ -949,47 +821,8 @@ size_t max_serialized_size_key_@('__'.join([package_name] + list(interface_path.
   bool & is_plain,
   size_t current_alignment)
 {
-  size_t initial_alignment = current_alignment;
-
-  const size_t padding = 4;
-  const size_t wchar_size = 4;
-  size_t last_member_size = 0;
-  (void)last_member_size;
-  (void)padding;
-  (void)wchar_size;
-
-  full_bounded = true;
-  is_plain = true;
-@{
-last_member_name_ = None
-}@
-@[for member in message.structure.members]@
-@{
-last_member_name_ = member.name
-}@
-@[  if not member.has_annotation('key') and message.structure.has_any_member_with_annotation('key')]@
-@[  continue]@
-@[  end if]@
-@[  for line in generate_member_for_max_serialized_size(member, '_key')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  size_t ret_val = current_alignment - initial_alignment;
-@[if last_member_name_ is not None]@
-  if (is_plain) {
-    // All members are plain, and type is not empty.
-    // We still need to check that the in-memory alignment
-    // is the same as the CDR mandated alignment.
-    using DataType = @('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]));
-    is_plain =
-      (
-      offsetof(DataType, @(last_member_name_)) +
-      last_member_size
-      ) == ret_val;
-  }
-@[end if]@
-  return ret_val;
+  return impl_max_serialized_size_key_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+    full_bounded, is_plain, current_alignment);
 }
 
 @[  if message.structure.has_any_member_with_annotation('key') ]@
@@ -1094,16 +927,8 @@ bool cdr_serialize_with_endpoint_@('__'.join([package_name] + list(interface_pat
   const rmw_topic_endpoint_info_t & endpoint_info,
   const rosidl_typesupport_fastrtps_cpp::BufferSerializationContext & serialization_context)
 {
-  (void)ros_message;
-  (void)endpoint_info;
-  (void)serialization_context;
-@[for member in message.structure.members]@
-@[  for line in generate_member_for_cdr_serialize(member, '_with_endpoint')]@
-  @(line)
-@[  end for]@
-
-@[end for]@
-  return true;
+  return impl_cdr_serialize_with_endpoint_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+    ros_message, cdr, endpoint_info, serialization_context);
 }
 
 ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
@@ -1113,21 +938,9 @@ bool cdr_deserialize_with_endpoint_@('__'.join([package_name] + list(interface_p
   const rmw_topic_endpoint_info_t & endpoint_info,
   const rosidl_typesupport_fastrtps_cpp::BufferSerializationContext & serialization_context)
 {
-  (void)ros_message;
-  (void)endpoint_info;
-  (void)serialization_context;
-@[for member in message.structure.members]@
-@[  for line in generate_member_for_cdr_deserialize(member, '_with_endpoint')]@
-@[    if line]@
-  @(line)
-@[    else]@
-
-@[    end if]@
-@[  end for]@
-
-@[end for]@
-  return true;
-}  // NOLINT(readability/fn_size)
+  return impl_cdr_deserialize_with_endpoint_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+    cdr, ros_message, endpoint_info, serialization_context);
+}
 
 static bool _@(message.structure.namespaced_type.name)__cdr_serialize_with_endpoint(
   const void * untyped_ros_message,
