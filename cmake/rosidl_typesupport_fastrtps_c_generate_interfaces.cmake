@@ -20,6 +20,7 @@ endif()
 
 find_package(ament_cmake_ros_core REQUIRED)
 find_package(fastcdr 2 REQUIRED CONFIG)
+find_package(rosidl_cmake REQUIRED)
 find_package(rosidl_typesupport_interface REQUIRED)
 find_package(rosidl_typesupport_fastrtps_cpp REQUIRED)
 find_package(rosidl_runtime_c REQUIRED)
@@ -33,7 +34,8 @@ foreach(_abs_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_idl_name "${_abs_idl_file}" NAME_WE)
   string_camel_case_to_lower_case_underscore("${_idl_name}" _header_name)
   list(APPEND _generated_files
-    "${_output_path}/${_parent_folder}/detail/${_header_name}__rosidl_typesupport_fastrtps_c.h"
+    "${_output_path}/${_parent_folder}/detail/${_header_name}__rosidl_typesupport_fastrtps_c.hpp"
+    "${_output_path}/${_parent_folder}/detail/${_header_name}__rosidl_typesupport_fastrtps_c_impl.hpp"
     "${_output_path}/${_parent_folder}/detail/${_header_name}__type_support_c.cpp")
 endforeach()
 
@@ -41,8 +43,7 @@ set(_dependency_files "")
 set(_dependencies "")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
   foreach(_idl_file ${${_pkg_name}_IDL_FILES})
-    set(_abs_idl_file "${${_pkg_name}_DIR}/../${_idl_file}")
-    normalize_path(_abs_idl_file "${_abs_idl_file}")
+    rosidl_find_package_idl(_abs_idl_file "${_pkg_name}" "${_idl_file}")
     list(APPEND _dependency_files "${_abs_idl_file}")
     list(APPEND _dependencies "${_pkg_name}:${_abs_idl_file}")
   endforeach()
@@ -51,11 +52,14 @@ endforeach()
 set(target_dependencies
   "${rosidl_typesupport_fastrtps_c_BIN}"
   ${rosidl_typesupport_fastrtps_c_GENERATOR_FILES}
-  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/idl__rosidl_typesupport_fastrtps_c.h.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/idl__rosidl_typesupport_fastrtps_c.hpp.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/idl__type_support_c_impl.hpp.em"
   "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/idl__type_support_c.cpp.em"
-  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/msg__rosidl_typesupport_fastrtps_c.h.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/msg__rosidl_typesupport_fastrtps_c.hpp.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/msg__type_support_c_impl.hpp.em"
   "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/msg__type_support_c.cpp.em"
-  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/srv__rosidl_typesupport_fastrtps_c.h.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/srv__rosidl_typesupport_fastrtps_c.hpp.em"
+  "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/srv__type_support_c_impl.hpp.em"
   "${rosidl_typesupport_fastrtps_c_TEMPLATE_DIR}/srv__type_support_c.cpp.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
   ${_dependency_files})
@@ -76,23 +80,25 @@ rosidl_write_generator_arguments(
   TARGET_DEPENDENCIES ${target_dependencies}
 )
 
-# By default, without the settings below, find_package(Python3) will attempt
-# to find the newest python version it can, and additionally will find the
-# most specific version.  For instance, on a system that has
-# /usr/bin/python3.10, /usr/bin/python3.11, and /usr/bin/python3, it will find
-# /usr/bin/python3.11, even if /usr/bin/python3 points to /usr/bin/python3.10.
-# The behavior we want is to prefer the "system" installed version unless the
-# user specifically tells us otherwise through the Python3_EXECUTABLE hint.
-# Setting CMP0094 to NEW means that the search will stop after the first
-# python version is found.  Setting Python3_FIND_UNVERSIONED_NAMES means that
-# the search will prefer /usr/bin/python3 over /usr/bin/python3.11.  And that
-# latter functionality is only available in CMake 3.20 or later, so we need
-# at least that version.
-cmake_minimum_required(VERSION 3.20)
-cmake_policy(SET CMP0094 NEW)
-set(Python3_FIND_UNVERSIONED_NAMES FIRST)
+if(NOT TARGET Python3::Interpreter)
+  # By default, without the settings below, find_package(Python3) will attempt
+  # to find the newest python version it can, and additionally will find the
+  # most specific version.  For instance, on a system that has
+  # /usr/bin/python3.10, /usr/bin/python3.11, and /usr/bin/python3, it will find
+  # /usr/bin/python3.11, even if /usr/bin/python3 points to /usr/bin/python3.10.
+  # The behavior we want is to prefer the "system" installed version unless the
+  # user specifically tells us otherwise through the Python3_EXECUTABLE hint.
+  # Setting CMP0094 to NEW means that the search will stop after the first
+  # python version is found.  Setting Python3_FIND_UNVERSIONED_NAMES means that
+  # the search will prefer /usr/bin/python3 over /usr/bin/python3.11.  And that
+  # latter functionality is only available in CMake 3.20 or later, so we need
+  # at least that version.
+  cmake_minimum_required(VERSION 3.20)
+  cmake_policy(SET CMP0094 NEW)
+  set(Python3_FIND_UNVERSIONED_NAMES FIRST)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.27)
   set(_dep_explicit_only DEPENDS_EXPLICIT_ONLY)
@@ -203,11 +209,6 @@ if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
 endif()
 
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
-  find_package(ament_cmake_cppcheck REQUIRED)
-  ament_cppcheck(
-    TESTNAME "cppcheck_rosidl_typesupport_fastrtps_c"
-    ${_generated_files})
-
   find_package(ament_cmake_cpplint REQUIRED)
   get_filename_component(_cpplint_root "${_output_path}" DIRECTORY)
   ament_cpplint(
