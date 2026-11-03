@@ -10,12 +10,6 @@ else()
     CACHE BOOL "If Connext Static should be disabled.")
 endif()
 
-# Default to C++17
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
-
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -52,11 +46,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   rosidl_buffer_backend::rosidl_buffer_backend
   rosidl_runtime_c::rosidl_runtime_c
   rosidl_runtime_cpp::rosidl_runtime_cpp
-  rmw::rmw)
-
-# Export old-style CMake variables
-ament_export_include_directories("include/${PROJECT_NAME}")
-ament_export_libraries(${PROJECT_NAME})
+  rmw::rmw
+  # Note we link public on purpose, as we want to export
+  # the used C++ version as minimum to all consuming packages
+  ament_cmake_ros_core::ament_ros_defaults)
 
 # Export modern CMake targets
 ament_export_targets(${PROJECT_NAME})
@@ -70,11 +63,6 @@ if(BUILD_TESTING)
 
   find_package(performance_test_fixture REQUIRED)
 
-  # Give cppcheck hints about macro definitions coming from outside this package
-  get_target_property(ament_cmake_cppcheck_ADDITIONAL_INCLUDE_DIRS
-    performance_test_fixture::performance_test_fixture INTERFACE_INCLUDE_DIRECTORIES)
-
-  set(ament_cmake_cppcheck_LANGUAGE c++)
   ament_lint_auto_find_test_dependencies()
 
   get_target_property(memory_tools_ld_preload_env_var
