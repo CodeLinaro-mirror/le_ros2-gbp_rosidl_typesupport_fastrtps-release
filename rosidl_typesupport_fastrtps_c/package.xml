@@ -2,12 +2,12 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rosidl_typesupport_fastrtps_c</name>
-  <version>3.10.1</version>
+  <version>3.10.2</version>
   <description>Generate the C interfaces for eProsima FastRTPS.</description>
 
   <maintainer email="sloretz@openrobotics.org">Shane Loretz</maintainer>
 
-  <license>Apache License 2.0</license>
+  <license>Apache-2.0</license>
 
   <author email="dthomas@osrfoundation.org">Dirk Thomas</author>
   <author email="michel@ekumenlabs.com">Michel Hidalgo</author>
@@ -28,6 +28,7 @@
   <!-- Needed by downstream targets to use this package's headers or the headers it generates, but header only so not needed to link against -->
   <build_export_depend>rosidl_runtime_cpp</build_export_depend>
   <build_export_depend>rosidl_typesupport_interface</build_export_depend>
+  <build_export_depend>rosidl_cmake</build_export_depend>
 
   <!-- Needed for headers in this package, or the headers it generates, and also needs to be linked in downstream packages -->
   <depend>fastcdr</depend>
