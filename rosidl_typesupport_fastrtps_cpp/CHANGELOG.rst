@@ -2,58 +2,24 @@
 Changelog for package rosidl_typesupport_fastrtps_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-3.10.2 (2026-11-03)
--------------------
-* Remove custom ament_cppcheck usage. (`#173 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/173>`_)
-* Use rosidl_find_package_idl() to find .idl file paths (`#169 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/169>`_)
-* Remove ament_export_include_directories and ament_export_libraries calls (`#170 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/170>`_)
-* Use the SPDX identifier Apache-2.0 in package.xml license tags (`#167 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/167>`_)
-* print rcl::buffer debug message only once cz it is a hot path. (`#164 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/164>`_)
-* Skip redundant find_package(Python3) in generator extensions (`#163 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/163>`_)
-* Rename generated rosidl_typesupport_fastrtps_c headers to *.hpp (`#160 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/160>`_)
-* feat: Inline serialization from different msgs (`#150 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/150>`_)
-* use C++ 20 in default. (`#156 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/156>`_)
-* Contributors: Chris Lalancette, Janosch Machowinski, Mathias Lüdtke, Michael Carroll, Nathan Wiebe Neufeldt, Tomoya Fujita
-
-3.10.1 (2026-05-13)
--------------------
-* Clean up logs in buffer serialization functions (`#153 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/153>`_)
-* Update rosidl typesupport to support rosidl::Buffer in nested uint8[] (`#151 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/151>`_)
-* Contributors: CY Chen
-
-3.10.0 (2026-05-05)
--------------------
-
-3.9.5 (2026-04-16)
+3.8.3 (2026-11-03)
 ------------------
-* Add missing build dependencies for exported dependencies (`#149 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/149>`_)
-* Contributors: Scott K Logan
+* use variable to control shared/static build type (`#138 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/138>`_) (`#146 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/146>`_)
+* Contributors: mergify[bot]
 
-3.9.4 (2026-04-09)
+3.8.2 (2025-11-21)
 ------------------
-* Add support for rosidl::Buffer type serialization (`#144 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/144>`_)
-* use variable to control shared/static build type (`#138 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/138>`_)
-* Add DEPENDS_EXPLICIT_ONLY to remove implicit dependencies (`#136 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/136>`_)
-* Contributors: Anthony Welte, CY Chen, Jay Sridharan
+* Switch ament_index_python and rosidl_cli to exec_depend. (`#137 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/137>`_) (`#139 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/139>`_)
+  They are both Python libraries, so they are really only
+  needed at exec time.
+  (cherry picked from commit db528f13225c23f3f04a97500279f9171611da22)
+  Co-authored-by: Chris Lalancette <clalancette@gmail.com>
+* Contributors: mergify[bot]
 
-3.9.3 (2025-11-21)
+3.8.1 (2025-09-24)
 ------------------
-* Switch ament_index_python and rosidl_cli to exec_depend. (`#137 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/137>`_)
-* Contributors: Chris Lalancette
-
-3.9.2 (2025-10-01)
-------------------
-* Removed deprecated code (`#135 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/135>`_)
-* Contributors: Alejandro Hernández Cordero
-
-3.9.1 (2025-07-29)
-------------------
-* fix cmake deprecation (`#134 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/134>`_)
-* Check remaining size before resizing sequences (`#130 <https://github.com/ros2/rosidl_typesupport_fastrtps/issues/130>`_)
-* Contributors: Miguel Company, mosfet80
-
-3.9.0 (2025-04-24)
-------------------
+* Check remaining size before resizing sequences (`#130 <https://github.com/ros2/rosidl_typesupport_fastrtps/pull/130>`_) (`#131 <https://github.com/ros2/rosidl_typesupport_fastrtps/pull/131>`_)
+* Contributors: mergify[bot]
 
 3.8.0 (2025-03-31)
 ------------------

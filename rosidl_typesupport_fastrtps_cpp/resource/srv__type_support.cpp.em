@@ -17,20 +17,25 @@ include_base = '/'.join(include_parts)
 TEMPLATE(
     'msg__type_support.cpp.em',
     package_name=package_name, interface_path=interface_path, message=service.request_message,
-    include_directives=include_directives)
-}
+    include_directives=include_directives,
+    forward_declared_types=forward_declared_types)
+}@
+
 @{
 TEMPLATE(
     'msg__type_support.cpp.em',
     package_name=package_name, interface_path=interface_path, message=service.response_message,
-    include_directives=include_directives)
-}
+    include_directives=include_directives,
+    forward_declared_types=forward_declared_types)
+}@
+
 @{
 TEMPLATE(
     'msg__type_support.cpp.em',
     package_name=package_name, interface_path=interface_path, message=service.event_message,
-    include_directives=include_directives)
-}
+    include_directives=include_directives,
+    forward_declared_types=forward_declared_types)
+}@
 
 @{
 header_files = [
@@ -50,7 +55,6 @@ header_files = [
 @[    end if]@
 #include "@(header_file)"
 @[end for]@
-
 @[  for ns in service.namespaced_type.namespaces]@
 
 namespace @(ns)
